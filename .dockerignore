@@ -1,0 +1,17 @@
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.git/
+.gitignore
+.env
+.env.*
+!.env.example
+.vscode/
+.idea/
+
+# docs / tooling — not needed in the runtime image
+DEMO_SCRIPT.md
+render_architecture.py
+architecture.png

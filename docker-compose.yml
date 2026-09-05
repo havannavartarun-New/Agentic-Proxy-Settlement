@@ -1,0 +1,62 @@
+services:
+  merchant:
+    build: .
+    image: agentic-settlement-proxy:latest
+    container_name: agentic-merchant
+    env_file: .env
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "merchant_server:app", "--host", "0.0.0.0", "--port", "8000"]
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8000/.well-known/agentic-commerce.json', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  app:
+    # No separate `build:` here on purpose -- all four services share the one
+    # `agentic-settlement-proxy` image built by `merchant`. Declaring `build:`
+    # on more than one service tagging the same image name races when Compose
+    # builds them in parallel ("image ... already exists"). Run
+    # `docker compose build` (or `up --build`) once; every service below then
+    # reuses that image.
+    image: agentic-settlement-proxy:latest
+    container_name: agentic-app
+    env_file: .env
+    environment:
+      # Reach the merchant by its compose service name, not localhost.
+      MERCHANT_BASE_URL: http://merchant:8000
+    depends_on:
+      merchant:
+        condition: service_healthy
+    ports:
+      - "8501:8501"
+    command: ["streamlit", "run", "app.py",
+              "--server.address=0.0.0.0", "--server.port=8501",
+              "--browser.gatherUsageStats=false"]
+    restart: unless-stopped
+
+  # One-off CLI runs, not started by `docker compose up`:
+  #   docker compose run --rm buyer                    # happy path
+  #   docker compose run --rm buyer --tamper-price      # attack scenario
+  buyer:
+    image: agentic-settlement-proxy:latest
+    env_file: .env
+    environment:
+      MERCHANT_BASE_URL: http://merchant:8000
+    depends_on:
+      merchant:
+        condition: service_healthy
+    entrypoint: ["python", "buyer_agent.py"]
+    profiles: ["cli"]
+
+  # docker compose run --rm tests
+  tests:
+    image: agentic-settlement-proxy:latest
+    # `python -m pytest` (not the bare `pytest` script) so the project root
+    # lands on sys.path[0] and `import crypto_guardrails` resolves.
+    entrypoint: ["python", "-m", "pytest", "tests/", "-v"]
+    profiles: ["cli"]

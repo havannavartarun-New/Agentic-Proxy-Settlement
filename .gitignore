@@ -1,0 +1,22 @@
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Python cache & tests
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Local tooling & IDE configs
+.vscode/
+.idea/
+claude.md
+.claude*
+DEMO_SCRIPT.md
